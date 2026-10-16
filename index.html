@@ -137,7 +137,6 @@ textarea{min-height:140px;resize:vertical}
     <h1>Fútbol de los Viernes</h1>
     <div class="summary">
       <div><b id="sNights">0</b><span>viernes</span></div>
-      <div><b id="sGames">0</b><span>partidos</span></div>
       <div><b id="sPlayers">0</b><span>jugadores</span></div>
       <div><b id="sGoals">0</b><span>goles</span></div>
     </div>
@@ -155,7 +154,7 @@ textarea{min-height:140px;resize:vertical}
 
     <section id="tab-tabla">
       <h2>Tabla general</h2>
-      <p class="lede">Cada viernes, los jugadores del equipo que queda primero suman 3 puntos, los del segundo 1 y los del último 0. Se ordena por puntos, luego promedio por viernes, luego veces campeón.</p>
+      <p class="lede">Cada viernes, los jugadores del equipo que queda primero suman 3 puntos, los del segundo 1 y los del último 0. Se ordena por puntos, luego partidos ganados, luego goles.</p>
       <div id="tablaBody"></div>
     </section>
 
@@ -209,15 +208,15 @@ textarea{min-height:140px;resize:vertical}
 
   /* ---------- stats ---------- */
   const isNum = v => v!==null && v!=='' && v!==undefined && !isNaN(+v);
-  const hasRec = t => isNum(t.w)||isNum(t.d)||isNum(t.l);
+  const hasRec = t => isNum(t.w);
   function teamRecord(n,i){
-    const t=n.teams[i]; if(hasRec(t)) return {w:+t.w||0,d:+t.d||0,l:+t.l||0};
+    const t=n.teams[i]; if(hasRec(t)) return {w:+t.w||0};
     const gs=validGames(n).filter(g=>g.a===i||g.b===i); if(!gs.length) return null;
-    const r={w:0,d:0,l:0}; gs.forEach(g=>{ const mine=g.a===i?+g.sa:+g.sb, theirs=g.a===i?+g.sb:+g.sa; r[mine>theirs?'w':mine<theirs?'l':'d']++; }); return r;
+    const r={w:0}; gs.forEach(g=>{ const mine=g.a===i?+g.sa:+g.sb, theirs=g.a===i?+g.sb:+g.sa; if(mine>theirs) r.w++; }); return r;
   }
   function nightPoints(n){
     if(n.teams.every(t=>isNum(t.pts))) return n.teams.map(t=>+t.pts);
-    if(n.teams.every(hasRec)) return n.teams.map(t=>3*(+t.w||0)+(+t.d||0));
+    if(n.teams.every(hasRec)) return n.teams.map(t=>3*(+t.w||0));
     const games=validGames(n); if(!games.length) return null;
     const pts=n.teams.map(()=>0);
     games.forEach(g=>{ const sa=+g.sa||0, sb=+g.sb||0; if(sa>sb) pts[g.a]+=3; else if(sb>sa) pts[g.b]+=3; else {pts[g.a]++;pts[g.b]++;} });
@@ -240,7 +239,7 @@ textarea{min-height:140px;resize:vertical}
       const tbl=nightTable(n);
       if(tbl){ tbl.forEach(r=>(r.t.players||[]).forEach(x=>{ const p=get(x); p.scored++; p.pts+=r.award; if(r.first) p.first++; if(r.last) p.last++; p.hist.push(r.first?'W':r.last?'L':'D'); }));
         const w=tbl[0]; if(w.first&&(!bestNight||w.pts>bestNight.pts)) bestNight={n,r:w}; }
-      n.teams.forEach((t,i)=>{ const r=teamRecord(n,i); if(r) (t.players||[]).forEach(x=>{ const p=get(x); p.w+=r.w; p.d+=r.d; p.l+=r.l; }); });
+      n.teams.forEach((t,i)=>{ const r=teamRecord(n,i); if(r) (t.players||[]).forEach(x=>{ const p=get(x); p.w+=r.w; }); });
       validGames(n).forEach(g=>{ const sa=+g.sa||0, sb=+g.sb||0; totalGoals+=sa+sb; totalGames++;
         const info={n,g,margin:Math.abs(sa-sb),tot:sa+sb};
         if(!biggest||info.margin>biggest.margin) biggest=info; if(!wildest||info.tot>wildest.tot) wildest=info; });
@@ -250,20 +249,20 @@ textarea{min-height:140px;resize:vertical}
       if(n.mvp) get(n.mvp).mvp++;
     });
     const players=[...P.values()].map(p=>{
-      p.avg=p.scored?p.pts/p.scored:0; p.pj=p.w+p.d+p.l; p.pct=p.pj?p.w/p.pj:0;
+      p.avg=p.scored?p.pts/p.scored:0;
       let cur=0; for(let i=p.hist.length-1;i>=0&&p.hist[i]==='W';i--) cur++;
       let best=0,run=0; p.hist.forEach(r=>{run=r==='W'?run+1:0; best=Math.max(best,run);});
       let dry=0; for(let i=p.hist.length-1;i>=0&&p.hist[i]!=='W';i--) dry++;
       return Object.assign(p,{curStreak:cur,bestStreak:best,dry});
     });
-    players.sort((a,b)=>b.pts-a.pts||b.avg-a.avg||b.first-a.first||b.goals-a.goals||a.name.localeCompare(b.name));
+    players.sort((a,b)=>b.pts-a.pts||b.w-a.w||b.goals-a.goals||b.mvp-a.mvp||a.name.localeCompare(b.name));
     return {players,totalGoals,totalGames,biggest,wildest,bestNight};
   }
 
   /* ---------- render ---------- */
   function render(){
     const S=computeStats();
-    $('sNights').textContent=nights.length; $('sGames').textContent=S.totalGames;
+    $('sNights').textContent=nights.length; 
     $('sPlayers').textContent=S.players.length; $('sGoals').textContent=S.totalGoals;
     renderTable(S); renderAwards(S); renderNights();
   }
@@ -274,15 +273,14 @@ textarea{min-height:140px;resize:vertical}
   function renderTable(S){
     const box=$('tablaBody'); box.replaceChildren();
     if(!S.players.length){ box.append(emptyBox('La tabla está vacía','Cuando cargues el primer viernes, aquí aparece quién manda en el grupo.')); return; }
-    const head=el('tr',null,...['#','Jugador','Vie','Pts','Prom','1°','Último','PJ','G','E','P','%V','Goles','MVP','Últimos 5'].map((h,i)=>el('th',{class:i===1?'name':''},h)));
+    const head=el('tr',null,...['#','Jugador','Viernes','Pts','G','MVP','Goles','Últimos 5'].map((h,i)=>el('th',{class:i===1?'name':''},h)));
     const rows=S.players.map((p,i)=>el('tr',null,
       el('td',{class:'pos'},i+1), el('td',{class:'name'},el('strong',null,p.name), akaOf[key(p.name)]?el('span',{class:'note'},' ('+akaOf[key(p.name)].join(', ')+')'):null), el('td',null,p.nights),
-      el('td',{class:'pts'},p.pts), el('td',null,p.scored?fmt1(p.avg):'–'), el('td',null,p.first||'–'), el('td',null,p.last||'–'), el('td',null,p.pj||'–'), el('td',null,p.pj?p.w:'–'), el('td',null,p.pj?p.d:'–'), el('td',null,p.pj?p.l:'–'), el('td',null,p.pj?Math.round(p.pct*100)+'%':'–'),
-      el('td',null,p.goals||'–'), el('td',null,p.mvp||'–'),
+      el('td',{class:'pts'},p.pts), el('td',null,p.w||'–'), el('td',null,p.mvp||'–'), el('td',null,p.goals||'–'),
       el('td',null, p.hist.length? el('span',{class:'form'},p.hist.slice(-5).map(r=>el('span',{class:'chip '+r,title:r==='W'?'Campeón de la noche':r==='L'?'Último de la noche':'En el medio'},r==='W'?'1°':r==='L'?'Ú':'–'))) : el('span',{class:'note'},'sin tabla'))
     ));
     box.append(el('div',{class:'tbl-wrap'},el('table',null,el('thead',null,head),el('tbody',null,rows))));
-    box.append(el('p',{class:'note'},'Vie: viernes jugados · Prom: puntos promedio por viernes (sobre 3) · 1°: veces campeón de la noche · Último: veces en el fondo de la tabla · PJ/G/E/P: partidos, ganados, empatados y perdidos sumando el récord de su equipo cada viernes.'));
+    box.append(el('p',{class:'note'},'Pts: 3 por quedar 1° la noche, 1 por quedar 2°, 0 por quedar último · G: partidos ganados sumando los de su equipo cada viernes · Últimos 5: 1° = campeón de la noche, Ú = último.'));
   }
   function top(list,f,filt){ const c=list.filter(filt||(()=>true)); if(!c.length) return null; const mx=Math.max(...c.map(f)); if(!(mx>0)) return null; return {who:c.filter(p=>f(p)===mx).map(p=>p.name),v:mx}; }
   const gameLabel=(n,g)=>n.teams[g.a].name+' '+g.sa+' – '+g.sb+' '+n.teams[g.b].name;
@@ -296,10 +294,9 @@ textarea{min-height:140px;resize:vertical}
     add('Rey del MVP',top(P,p=>p.mvp),v=>v+(v===1?' vez elegido':' veces elegido'));
     add('En racha',top(P,p=>p.curStreak),v=>v+(v===1?' viernes ganado, el último':' viernes seguidos ganando'));
     add('Racha histórica',top(P,p=>p.bestStreak),v=>v+(v===1?' viernes ganado':' viernes seguidos campeón, el récord'));
-    add('Talismán',top(P,p=>Math.round(p.avg*10),p=>p.scored>=3),v=>fmt1(v/10)+' pts de promedio por viernes, sobre 3 (mín. 3)');
+    add('Talismán',top(P,p=>Math.round(p.avg*10),p=>p.scored>=3),v=>fmt1(v/10)+' pts de promedio por viernes, sobre 3 (mín. 3 viernes)');
     add('El que nunca falta',top(P,p=>p.nights),v=>v+(v===1?' viernes presente':' viernes presente'));
-    add('Pecho frío',top(P,p=>p.l),v=>v+(v===1?' partido perdido':' partidos perdidos'),'cold');
-    add('Ganador nato',top(P,p=>Math.round(p.pct*100),p=>p.pj>=6),v=>v+'% de partidos ganados (mín. 6 PJ)');
+    add('Máquina de ganar',top(P,p=>p.w),v=>v+(v===1?' partido ganado':' partidos ganados'));
     add('Farolito rojo',top(P,p=>p.last),v=>v+(v===1?' vez último en la tabla':' veces último en la tabla'),'cold');
     add('Sequía',top(P,p=>p.dry,p=>p.scored>=2),v=>v+' viernes seguidos sin ganar','cold');
     if(S.bestNight) A.push({t:'Noche perfecta',who:S.bestNight.r.t.name,v:S.bestNight.r.pts+' pts el '+fmtDate(S.bestNight.n.date)});
@@ -323,7 +320,7 @@ textarea{min-height:140px;resize:vertical}
       const playersOf=t=>(t.players||[]).map(x=>{const g=+((n.goals||{})[key(x)]||0); return g?x+' ⚽'+g:x;}).join(', ');
       const standings = tbl ? el('div',{class:'games'}, tbl.map(r=>el('div',{class:'standing'},
           el('span',{class:'spos'+(r.first?' gold':'')},r.pos+'°'),
-          el('div',{class:'sbody'}, el('span',{class:'tn'+(r.first?' won':r.last?' lost':'')},r.t.name), r.rec?el('span',{class:'rec'},r.rec.w+'G · '+r.rec.d+'E · '+r.rec.l+'P'):null, el('span',{class:'note'},playersOf(r.t))),
+          el('div',{class:'sbody'}, el('span',{class:'tn'+(r.first?' won':r.last?' lost':'')},r.t.name), r.rec?el('span',{class:'rec'},r.rec.w+(r.rec.w===1?' partido ganado':' partidos ganados')):null, el('span',{class:'note'},playersOf(r.t))),
           el('span',{class:'big',title:'Puntos del equipo en la tabla de la noche'},r.pts, el('span',{class:'award-pts'},'+'+r.award+' c/u')),
           ))) :
         el('div',{class:'rosters'}, el('div',{style:'grid-column:1/-1'},el('span',{class:'tag muted'},'Tabla pendiente')), n.teams.map(t=>el('div',{class:'roster'}, el('b',null,t.name+' ('+(t.players||[]).length+')'), el('span',null,playersOf(t)))));
@@ -374,7 +371,7 @@ textarea{min-height:140px;resize:vertical}
         if(!by.has(d)) by.set(d,{id:d,date:d,teams:[],games:[],goals:{},mvp:'',note:''});
         const n=by.get(d), t={name:r.equipo,players:parsePlayers(r.jugadores)};
         const p=num(r['pts noche']); if(p!==undefined) t.pts=p;
-        ['ganados','empates','perdidos'].forEach((f,i)=>{ const v=num(r[f]); if(v!==undefined) t['wdl'[i]]=v; });
+        { const v=num(r.ganados); if(v!==undefined) t.w=v; }
         if(r.nota&&!n.note) n.note=r.nota;
         n.teams.push(t); });
       go.forEach(r=>{ const n=by.get(normDate(r.fecha)); if(!n||!r.jugador) return; const nm=canon(r.jugador.trim()), k=key(nm);
