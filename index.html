@@ -211,6 +211,7 @@ textarea{min-height:140px;resize:vertical}
   const hasRec = t => isNum(t.w);
   function teamRecord(n,i){
     const t=n.teams[i]; if(hasRec(t)) return {w:+t.w||0};
+    if(isNum(t.pts)) return {w:+t.pts};
     const gs=validGames(n).filter(g=>g.a===i||g.b===i); if(!gs.length) return null;
     const r={w:0}; gs.forEach(g=>{ const mine=g.a===i?+g.sa:+g.sb, theirs=g.a===i?+g.sb:+g.sa; if(mine>theirs) r.w++; }); return r;
   }
@@ -280,7 +281,7 @@ textarea{min-height:140px;resize:vertical}
       el('td',null, p.hist.length? el('span',{class:'form'},p.hist.slice(-5).map(r=>el('span',{class:'chip '+r,title:r==='W'?'Campeón de la noche':r==='L'?'Último de la noche':'En el medio'},r==='W'?'1°':r==='L'?'Ú':'–'))) : el('span',{class:'note'},'sin tabla'))
     ));
     box.append(el('div',{class:'tbl-wrap'},el('table',null,el('thead',null,head),el('tbody',null,rows))));
-    box.append(el('p',{class:'note'},'Pts: 3 por quedar 1° la noche, 1 por quedar 2°, 0 por quedar último · G: partidos ganados sumando los de su equipo cada viernes · Últimos 5: 1° = campeón de la noche, Ú = último.'));
+    box.append(el('p',{class:'note'},'Pts: 3 por quedar 1° la noche, 1 por quedar 2°, 0 por quedar último · G: partidos ganados, sumando a cada jugador los que ganó su equipo cada viernes · Últimos 5: 1° = campeón de la noche, Ú = último.'));
   }
   function top(list,f,filt){ const c=list.filter(filt||(()=>true)); if(!c.length) return null; const mx=Math.max(...c.map(f)); if(!(mx>0)) return null; return {who:c.filter(p=>f(p)===mx).map(p=>p.name),v:mx}; }
   const gameLabel=(n,g)=>n.teams[g.a].name+' '+g.sa+' – '+g.sb+' '+n.teams[g.b].name;
