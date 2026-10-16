@@ -298,7 +298,7 @@ textarea{min-height:140px;resize:vertical}
     add('Talismán',top(P,p=>Math.round(p.avg*10),p=>p.scored>=3),v=>fmt1(v/10)+' pts de promedio por viernes, sobre 3 (mín. 3 viernes)');
     add('El que nunca falta',top(P,p=>p.nights),v=>v+(v===1?' viernes presente':' viernes presente'));
     add('Máquina de ganar',top(P,p=>p.w),v=>v+(v===1?' partido ganado':' partidos ganados'));
-    add('Farolito rojo',top(P,p=>p.last),v=>v+(v===1?' vez último en la tabla':' veces último en la tabla'),'cold');
+    add('Sótano',top(P,p=>p.last),v=>v+(v===1?' vez último en la tabla':' veces último en la tabla'),'cold');
     add('Sequía',top(P,p=>p.dry,p=>p.scored>=2),v=>v+' viernes seguidos sin ganar','cold');
     if(S.bestNight) A.push({t:'Noche perfecta',who:S.bestNight.r.t.name,v:S.bestNight.r.pts+' pts el '+fmtDate(S.bestNight.n.date)});
     if(S.biggest&&S.biggest.margin>0) A.push({t:'La goleada',who:S.biggest.g.sa+' – '+S.biggest.g.sb,v:gameLabel(S.biggest.n,S.biggest.g)+', '+fmtDate(S.biggest.n.date)});
